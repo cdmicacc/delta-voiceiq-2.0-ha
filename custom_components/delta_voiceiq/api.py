@@ -177,3 +177,60 @@ class DeltaVoiceIQClient:
         if not devices:
             raise NoDevicesFound("UserInfo returned no usable devices")
         return user_id, devices
+
+    async def toggle_water(self, mac_address: str, on: bool) -> None:
+        await self._post(
+            "/api/device/v3/ToggleWater",
+            params={"macAddress": mac_address, "toggle": "on" if on else "off"},
+        )
+
+    async def dispense(self, mac_address: str, milliliters: float) -> None:
+        await self._post(
+            "/api/device/v2/Dispense",
+            params={"macAddress": mac_address, "milliliters": str(round(milliliters))},
+        )
+
+    async def hand_wash(self) -> None:
+        await self._post("/api/voice/v4/handWashMode")
+
+    async def get_usage(self, mac_address: str, interval: int) -> float:
+        """Return summed usage in gallons for the given interval (0=today,1=week,2=month,3=year)."""
+        try:
+            async with self._session.get(
+                f"{BASE_URL}/api/device/v2/UsageReport",
+                params={"macAddress": mac_address, "interval": str(interval)},
+                headers=self._headers(),
+            ) as resp:
+                if resp.status == 401:
+                    raise AuthExpired("UsageReport rejected the access token")
+                resp.raise_for_status()
+                data = await resp.json()
+        except aiohttp.ClientError as err:
+            raise CannotConnect("Network error calling UsageReport") from err
+        return sum(data["retObject"]["datasets"][0]["data"])
+
+    async def _post(self, path: str, params: dict[str, str] | None = None) -> None:
+        try:
+            async with self._session.post(
+                f"{BASE_URL}{path}", params=params or {}, headers=self._headers()
+            ) as resp:
+                if resp.status == 401:
+                    raise AuthExpired(f"{path} rejected the access token")
+                resp.raise_for_status()
+        except aiohttp.ClientError as err:
+            raise CannotConnect(f"Network error calling {path}") from err
+
+
+_ML_PER_UNIT = {
+    "ml": 1.0,
+    "l": 1000.0,
+    "gal": 3785.411784,
+    "fl_oz": 29.5735295625,
+}
+
+
+def convert_to_ml(amount: float, unit: str) -> float:
+    """Convert an amount in the given unit to milliliters for the Dispense API."""
+    if unit not in _ML_PER_UNIT:
+        raise ValueError(f"Unsupported dispense unit: {unit!r}")
+    return amount * _ML_PER_UNIT[unit]

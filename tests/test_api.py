@@ -7,11 +7,13 @@ import pytest
 from aioresponses import aioresponses
 
 from custom_components.delta_voiceiq.api import (
+    AuthExpired,
     CannotConnect,
     DeltaVoiceIQClient,
     InvalidCode,
     NoDevicesFound,
     build_login_url,
+    convert_to_ml,
     extract_code,
 )
 
@@ -165,3 +167,101 @@ async def test_get_user_info_filters_malformed_devices():
     assert user_id == "u1"
     assert len(devices) == 1
     assert devices[0].mac_address == "AABBCCDDEEFF"
+
+
+def test_convert_to_ml_passthrough():
+    assert convert_to_ml(500, "ml") == 500
+
+
+def test_convert_to_ml_liters():
+    assert convert_to_ml(1, "l") == 1000
+
+
+def test_convert_to_ml_gallons():
+    assert round(convert_to_ml(1, "gal"), 1) == 3785.4
+
+
+def test_convert_to_ml_fl_oz():
+    assert round(convert_to_ml(1, "fl_oz"), 1) == 29.6
+
+
+def test_convert_to_ml_rejects_unknown_unit():
+    with pytest.raises(ValueError):
+        convert_to_ml(1, "cups")
+
+
+@pytest.mark.asyncio
+async def test_toggle_water_on_sends_correct_request():
+    with aioresponses() as mocked:
+        mocked.post(
+            "https://device.deltafaucet.com/api/device/v3/ToggleWater?macAddress=AABBCCDDEEFF&toggle=on",
+            status=200,
+            payload={"retCode": 0, "retMessage": "Success"},
+        )
+        async with aiohttp.ClientSession() as session:
+            client = DeltaVoiceIQClient(session, access_token="tok")
+            await client.toggle_water("AABBCCDDEEFF", on=True)  # no exception = success
+
+
+@pytest.mark.asyncio
+async def test_toggle_water_401_raises_auth_expired():
+    with aioresponses() as mocked:
+        mocked.post(
+            "https://device.deltafaucet.com/api/device/v3/ToggleWater?macAddress=AABBCCDDEEFF&toggle=off",
+            status=401,
+        )
+        async with aiohttp.ClientSession() as session:
+            client = DeltaVoiceIQClient(session, access_token="tok")
+            with pytest.raises(AuthExpired):
+                await client.toggle_water("AABBCCDDEEFF", on=False)
+
+
+@pytest.mark.asyncio
+async def test_dispense_rounds_milliliters_into_request():
+    with aioresponses() as mocked:
+        mocked.post(
+            "https://device.deltafaucet.com/api/device/v2/Dispense?macAddress=AABBCCDDEEFF&milliliters=355",
+            status=200,
+        )
+        async with aiohttp.ClientSession() as session:
+            client = DeltaVoiceIQClient(session, access_token="tok")
+            await client.dispense("AABBCCDDEEFF", 355.0)
+
+
+@pytest.mark.asyncio
+async def test_hand_wash_success():
+    with aioresponses() as mocked:
+        mocked.post(
+            "https://device.deltafaucet.com/api/voice/v4/handWashMode",
+            status=200,
+        )
+        async with aiohttp.ClientSession() as session:
+            client = DeltaVoiceIQClient(session, access_token="tok")
+            await client.hand_wash()
+
+
+@pytest.mark.asyncio
+async def test_get_usage_sums_dataset():
+    with aioresponses() as mocked:
+        mocked.get(
+            "https://device.deltafaucet.com/api/device/v2/UsageReport?macAddress=AABBCCDDEEFF&interval=1",
+            payload={"retObject": {"datasets": [{"data": [1.5, 2.5, 3.0]}]}},
+        )
+        async with aiohttp.ClientSession() as session:
+            client = DeltaVoiceIQClient(session, access_token="tok")
+            result = await client.get_usage("AABBCCDDEEFF", 1)
+
+    assert result == 7.0
+
+
+@pytest.mark.asyncio
+async def test_get_usage_401_raises_auth_expired():
+    with aioresponses() as mocked:
+        mocked.get(
+            "https://device.deltafaucet.com/api/device/v2/UsageReport?macAddress=AABBCCDDEEFF&interval=0",
+            status=401,
+        )
+        async with aiohttp.ClientSession() as session:
+            client = DeltaVoiceIQClient(session, access_token="tok")
+            with pytest.raises(AuthExpired):
+                await client.get_usage("AABBCCDDEEFF", 0)
