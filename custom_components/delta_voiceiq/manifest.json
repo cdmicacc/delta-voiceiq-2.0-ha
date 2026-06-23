@@ -1,0 +1,12 @@
+{
+  "domain": "delta_voiceiq",
+  "name": "Delta VoiceIQ",
+  "config_flow": true,
+  "iot_class": "cloud_polling",
+  "integration_type": "device",
+  "codeowners": ["@cdmicacc"],
+  "documentation": "https://github.com/cdmicacc/delta-voiceiq-2.0-ha",
+  "issue_tracker": "https://github.com/cdmicacc/delta-voiceiq-2.0-ha/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}
