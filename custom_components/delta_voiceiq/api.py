@@ -7,6 +7,8 @@ import logging
 import re
 from dataclasses import dataclass
 
+import aiohttp
+
 _LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://device.deltafaucet.com"
@@ -97,3 +99,81 @@ def _decode_exp(access_token: str) -> int | None:
     except Exception:  # noqa: BLE001 - any decode failure is the same "unparseable" case
         _LOGGER.warning("Could not parse JWT exp claim from access token", exc_info=True)
         return None
+
+
+class DeltaVoiceIQClient:
+    """Thin async wrapper around Delta's VoiceIQ device API."""
+
+    def __init__(self, session: aiohttp.ClientSession, access_token: str | None = None) -> None:
+        self._session = session
+        self.access_token = access_token
+
+    def _headers(self, authenticated: bool = True) -> dict[str, str]:
+        headers = {"dfc-source": DFC_SOURCE, "User-Agent": USER_AGENT}
+        if authenticated:
+            if not self.access_token:
+                raise RuntimeError("No access token set on DeltaVoiceIQClient")
+            headers["Authorization"] = f"Bearer {self.access_token}"
+        return headers
+
+    async def exchange_code(self, code: str) -> ExchangeResult:
+        """Exchange a delta.code.* for an access token, then fetch UserInfo."""
+        try:
+            async with self._session.get(
+                f"{BASE_URL}/Auth/PostAuth",
+                params={"code": code, "state": "none"},
+                headers=self._headers(authenticated=False),
+                allow_redirects=False,
+            ) as resp:
+                location = resp.headers.get("Location")
+        except aiohttp.ClientError as err:
+            raise CannotConnect("Network error calling PostAuth") from err
+
+        if not location:
+            raise InvalidCode("PostAuth returned no redirect (bad/expired/used code)")
+
+        if "#/auth/" not in location:
+            _LOGGER.warning("PostAuth redirect missing #/auth/ payload: %s", location)
+            raise CannotConnect("PostAuth redirect did not contain an auth payload")
+
+        b64_payload = location.split("#/auth/", 1)[1]
+        try:
+            decoded = json.loads(base64.b64decode(_b64_pad(b64_payload)))
+            access_token = decoded["Value"]["accessToken"]
+        except Exception as err:  # noqa: BLE001 - any of decode/parse/key-lookup can fail here
+            _LOGGER.warning("Failed to decode/extract accessToken from PostAuth payload: %s", err)
+            raise CannotConnect("Could not parse PostAuth response") from err
+
+        if len(access_token) < 100:
+            _LOGGER.warning("Extracted accessToken suspiciously short (%d chars)", len(access_token))
+            raise CannotConnect("Extracted access token looked invalid")
+
+        self.access_token = access_token
+        # Strip trailing padding characters (the token may have "A"s appended to meet minimum length)
+        jwt_part = access_token.rstrip("A")
+        exp = _decode_exp(jwt_part)
+        user_id, devices = await self.get_user_info()
+        return ExchangeResult(access_token=access_token, user_id=user_id, exp_timestamp=exp, devices=devices)
+
+    async def get_user_info(self) -> tuple[str, list[DeltaDevice]]:
+        """Fetch UserInfo and return (user_id, usable_devices)."""
+        try:
+            async with self._session.get(
+                f"{BASE_URL}/api/user/v2/UserInfo", headers=self._headers()
+            ) as resp:
+                if resp.status == 401:
+                    raise AuthExpired("UserInfo rejected the access token")
+                resp.raise_for_status()
+                data = await resp.json()
+        except aiohttp.ClientError as err:
+            raise CannotConnect("Network error calling UserInfo") from err
+
+        user_id = data.get("user", {}).get("id", "")
+        devices = [
+            DeltaDevice(mac_address=d["macAddress"], name=d["name"], product_id=d.get("productId"))
+            for d in data.get("devices", [])
+            if d.get("macAddress") and d.get("name")
+        ]
+        if not devices:
+            raise NoDevicesFound("UserInfo returned no usable devices")
+        return user_id, devices
