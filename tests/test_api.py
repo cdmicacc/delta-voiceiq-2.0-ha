@@ -51,12 +51,13 @@ def _b64(value: str) -> str:
 
 def _fake_access_token(exp: int = 9999999999) -> str:
     """Build a fake 'access token' shaped like Delta's: base64(jwt-string)."""
-    header = _b64(json.dumps({"alg": "none"}))
+    # Header with extra dummy fields to naturally exceed 100 chars after encoding
+    header = _b64(json.dumps({"alg": "none", "dummy": "x" * 50}))
     payload = _b64(json.dumps({"exp": exp}))
     jwt = f"{header}.{payload}.sig"
-    # Delta's accessToken field is itself base64-encoded JWT text, padded out
-    # past the 100-char floor api.py checks for.
-    return _b64(jwt) + "A" * 60
+    # Delta's accessToken field is itself base64-encoded JWT text.
+    # The longer header above ensures the result is naturally >= 100 chars.
+    return _b64(jwt)
 
 
 REAL_USER_INFO_RESPONSE = {

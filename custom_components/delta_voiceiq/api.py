@@ -127,6 +127,7 @@ class DeltaVoiceIQClient:
             ) as resp:
                 location = resp.headers.get("Location")
         except aiohttp.ClientError as err:
+            _LOGGER.warning("Network error calling PostAuth: %s", err)
             raise CannotConnect("Network error calling PostAuth") from err
 
         if not location:
@@ -149,9 +150,7 @@ class DeltaVoiceIQClient:
             raise CannotConnect("Extracted access token looked invalid")
 
         self.access_token = access_token
-        # Strip trailing padding characters (the token may have "A"s appended to meet minimum length)
-        jwt_part = access_token.rstrip("A")
-        exp = _decode_exp(jwt_part)
+        exp = _decode_exp(access_token)
         user_id, devices = await self.get_user_info()
         return ExchangeResult(access_token=access_token, user_id=user_id, exp_timestamp=exp, devices=devices)
 
@@ -166,6 +165,7 @@ class DeltaVoiceIQClient:
                 resp.raise_for_status()
                 data = await resp.json()
         except aiohttp.ClientError as err:
+            _LOGGER.warning("Network error calling UserInfo: %s", err)
             raise CannotConnect("Network error calling UserInfo") from err
 
         user_id = data.get("user", {}).get("id", "")
