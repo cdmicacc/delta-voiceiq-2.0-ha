@@ -265,3 +265,16 @@ async def test_get_usage_401_raises_auth_expired():
             client = DeltaVoiceIQClient(session, access_token="tok")
             with pytest.raises(AuthExpired):
                 await client.get_usage("AABBCCDDEEFF", 0)
+
+
+@pytest.mark.asyncio
+async def test_get_usage_malformed_response_raises_cannot_connect():
+    with aioresponses() as mocked:
+        mocked.get(
+            "https://device.deltafaucet.com/api/device/v2/UsageReport?macAddress=AABBCCDDEEFF&interval=1",
+            payload={"unexpected": "shape"},
+        )
+        async with aiohttp.ClientSession() as session:
+            client = DeltaVoiceIQClient(session, access_token="tok")
+            with pytest.raises(CannotConnect):
+                await client.get_usage("AABBCCDDEEFF", 1)

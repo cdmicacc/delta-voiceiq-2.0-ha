@@ -207,7 +207,11 @@ class DeltaVoiceIQClient:
                 data = await resp.json()
         except aiohttp.ClientError as err:
             raise CannotConnect("Network error calling UsageReport") from err
-        return sum(data["retObject"]["datasets"][0]["data"])
+
+        try:
+            return sum(data["retObject"]["datasets"][0]["data"])
+        except (KeyError, IndexError, TypeError) as err:
+            raise CannotConnect("Malformed UsageReport response") from err
 
     async def _post(self, path: str, params: dict[str, str] | None = None) -> None:
         try:
