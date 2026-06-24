@@ -12,7 +12,7 @@ from .api import DeltaVoiceIQClient
 from .const import CONF_ACCESS_TOKEN, CONF_MAC_ADDRESS, USAGE_INTERVALS
 from .coordinator import DeltaUsageCoordinator
 
-PLATFORMS: list[Platform] = [Platform.VALVE]
+PLATFORMS: list[Platform] = [Platform.VALVE, Platform.SENSOR]
 
 
 @dataclass
