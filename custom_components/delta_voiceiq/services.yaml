@@ -1,0 +1,28 @@
+dispense:
+  target:
+    entity:
+      domain: valve
+  fields:
+    amount:
+      required: true
+      example: 355
+      selector:
+        number:
+          min: 0
+          max: 15000
+          step: 1
+    unit:
+      required: false
+      default: ml
+      selector:
+        select:
+          options:
+            - ml
+            - l
+            - gal
+            - fl_oz
+
+hand_wash:
+  target:
+    entity:
+      domain: valve
