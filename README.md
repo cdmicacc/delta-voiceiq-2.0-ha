@@ -14,20 +14,15 @@
 - **Water usage tracking** with daily, weekly, monthly, and yearly sensors
 - **Animated dashboard card** with water-fill icon, flow animations, and usage badge
 - **Rich popup** (browser_mod) with dispense buttons, usage stats, and history graph
-- **Browser-based token refresh** that eliminates mitmproxy for ongoing use
+- **Guided token refresh flow** integrated into Home Assistant, no mitmproxy required
 - **Token expiry warnings** via persistent notifications
 
 ## Screenshots
 
-| Dashboard Card | Long-Press Popup | Token Refresh |
+| Dashboard Card | Long-Press Popup | Card Flowing |
 |:-:|:-:|:-:|
-| ![Card](docs/images/card-off.png) | ![Popup](docs/images/popup.png) | ![Refresh](docs/images/token-refresh-page.png) |
-| Animated water-fill icon with usage badge | Dispense buttons, usage stats, history | Browser-based token refresh tool |
-
-| Card Flowing | Token Refresh Success |
-|:-:|:-:|
-| ![Flowing](docs/images/card-flowing.png) | ![Success](docs/images/token-refresh-success.png) |
-| Bubble animation when faucet is on | Successful token exchange |
+| ![Card](docs/images/card-off.png) | ![Popup](docs/images/popup.png) | ![Flowing](docs/images/card-flowing.png) |
+| Animated water-fill icon with usage badge | Dispense buttons, usage stats, history | Bubble animation when faucet is on |
 
 ## Compatibility
 
@@ -88,16 +83,11 @@ delta-voiceiq-2.0-ha/
 **Home Assistant:**
 - Home Assistant OS or Supervised (2024.1+)
 - File Editor or Studio Code Server add-on
-- Terminal & SSH add-on (for shell scripts)
 
-**HACS Components:**
-- [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom)
-- [card-mod](https://github.com/thomasloven/lovelace-card-mod)
-- [browser_mod](https://github.com/thomasloven/hass-browser_mod) (optional, for popup)
-
-**For initial token capture only:**
-- [mitmproxy](https://mitmproxy.org/) on a computer
-- DFC@Home app on your phone
+**Optional (for enhanced dashboard experience):**
+- [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom) — for animated water-fill effects
+- [card-mod](https://github.com/thomasloven/lovelace-card-mod) — for dynamic styling and animations
+- [browser_mod](https://github.com/thomasloven/hass-browser_mod) — for long-press popups with dispense buttons and usage stats
 
 ---
 
@@ -138,7 +128,7 @@ Delta uses **two completely separate** auth systems. Only VoiceIQ is needed.
 | Refresh token | No | Yes |
 | Login | Apple/Google/Amazon | Azure AD B2C |
 
-The VoiceIQ system has no refresh token. You must re-authenticate every ~60 days. The included browser-based refresh page makes this a 30-second process.
+The VoiceIQ system has no refresh token. You must re-authenticate every ~60 days. The in-HA reauthentication flow makes this straightforward.
 
 See [docs/AUTH.md](docs/AUTH.md) for the full deep dive.
 
@@ -193,9 +183,12 @@ automation:
       - platform: time
         at: "06:30:00"
     action:
-      - service: rest_command.delta_faucet_dispense
+      - service: delta_voiceiq.dispense
+        target:
+          entity_id: valve.delta_voiceiq_faucet
         data:
-          milliliters: 946
+          amount: 946
+          unit: ml
 ```
 
 ### Faucet Auto-Off Safety
@@ -204,15 +197,14 @@ automation:
   - alias: "Faucet Auto-Off"
     trigger:
       - platform: state
-        entity_id: input_boolean.delta_faucet_state
-        to: "on"
+        entity_id: valve.delta_voiceiq_faucet
+        to: "open"
         for:
           minutes: 5
     action:
-      - service: rest_command.delta_faucet_off
-      - service: input_boolean.turn_off
+      - service: valve.close_valve
         target:
-          entity_id: input_boolean.delta_faucet_state
+          entity_id: valve.delta_voiceiq_faucet
 ```
 
 ---
@@ -244,14 +236,15 @@ browser_mod must be added as an **integration** in HA (Settings > Devices & Serv
 **Q: Faucet icon not visible on the card?**
 This can happen on Android tablets running Fully Kiosk Browser. Force-close the browser and reopen. If the issue persists, restart HA.
 
-**Q: Card animations not updating when faucet state changes?**
-Add `entities` to your card_mod config to explicitly tell card-mod which entities to watch:
+**Q: Card animations not updating when faucet state changes? (custom dashboards only)**
+If you build a custom dashboard card using Mushroom + card-mod, add `entities` to your card_mod config to explicitly tell card-mod which entities to watch. Example:
 ```yaml
 card_mod:
   entities:
-    - input_boolean.delta_faucet_state
-    - sensor.delta_faucet_usage_today
+    - valve.delta_voiceiq_faucet
+    - sensor.delta_voiceiq_usage_today
 ```
+(This is not needed if using the default Entities card.)
 
 ### Token Refresh
 
