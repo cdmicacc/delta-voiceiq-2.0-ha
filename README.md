@@ -254,7 +254,7 @@ See the "Refreshing Your Token" section above. When your token nears expiry (< 7
 **Q: Where do I find the delta code after signing in?**
 After signing in, Delta redirects to a `justaddwater://` URL your browser can't open — the code is embedded in that URL. How to extract it depends on your browser:
 - **Firefox:** Open the Network tab before clicking sign in. Find the failed redirect request and look at its `Location` response header.
-- **Chrome:** Open DevTools Console (right-click > Inspect > Console) before signing in. After sign in, the `justaddwater://` line appears in the Console output.
+- **Chrome:** Open DevTools Console (right-click > Inspect > Console) before signing in. After sign in, a `Failed to launch 'justaddwater://...'` error appears — the full URL is right there to copy.
 - **Safari:** Not recommended — does not work reliably on Mac, iOS, or iPad.
 
 **Q: Apple Sign-In shows "Your request could not be completed"?**
