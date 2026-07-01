@@ -6,6 +6,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
+from urllib.parse import unquote
 
 import aiohttp
 
@@ -137,16 +138,12 @@ class DeltaVoiceIQClient:
             _LOGGER.warning("PostAuth redirect missing #/auth/ payload: %s", location)
             raise CannotConnect("PostAuth redirect did not contain an auth payload")
 
-        b64_payload = location.split("#/auth/", 1)[1]
+        b64_payload = unquote(location.split("#/auth/", 1)[1])
         try:
             decoded = json.loads(base64.b64decode(_b64_pad(b64_payload)))
             access_token = decoded["Value"]["accessToken"]
         except Exception as err:  # noqa: BLE001 - any of decode/parse/key-lookup can fail here
-            _LOGGER.warning(
-                "Failed to decode/extract accessToken from PostAuth payload (payload=%r): %s",
-                b64_payload,
-                err,
-            )
+            _LOGGER.warning("Failed to decode/extract accessToken from PostAuth payload: %s", err)
             raise CannotConnect("Could not parse PostAuth response") from err
 
         if len(access_token) < 100:
