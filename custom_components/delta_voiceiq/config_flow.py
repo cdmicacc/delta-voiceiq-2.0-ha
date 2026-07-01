@@ -8,6 +8,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig, SelectSelectorMode
 
 from .api import (
     AuthExpired,
@@ -49,7 +50,14 @@ class DeltaVoiceIQConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_code()
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema({vol.Required("provider"): vol.In(LOGIN_PROVIDERS)}),
+            data_schema=vol.Schema({
+                vol.Required("provider"): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[{"value": p, "label": p.capitalize()} for p in LOGIN_PROVIDERS],
+                        mode=SelectSelectorMode.LIST,
+                    )
+                )
+            }),
         )
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:

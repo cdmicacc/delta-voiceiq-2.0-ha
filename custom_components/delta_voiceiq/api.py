@@ -186,7 +186,7 @@ class DeltaVoiceIQClient:
         )
 
     async def hand_wash(self, mac_address: str) -> None:
-        await self._post("/api/voice/v4/handWashMode", params={"macAddress": mac_address})
+        await self._post("/api/voice/v4/handWashMode", params={"macAddress": mac_address}, json_body={})
 
     async def get_usage(self, mac_address: str, interval: int) -> float:
         """Return summed usage in gallons for the given interval (0=today,1=week,2=month,3=year)."""
@@ -208,14 +208,25 @@ class DeltaVoiceIQClient:
         except (KeyError, IndexError, TypeError) as err:
             raise CannotConnect("Malformed UsageReport response") from err
 
-    async def _post(self, path: str, params: dict[str, str] | None = None) -> None:
+    async def _post(
+        self,
+        path: str,
+        params: dict[str, str] | None = None,
+        json_body: dict | None = None,
+    ) -> None:
         try:
-            async with self._session.post(
-                f"{BASE_URL}{path}", params=params or {}, headers=self._headers()
-            ) as resp:
+            kwargs: dict = {"params": params or {}, "headers": self._headers()}
+            if json_body is not None:
+                kwargs["json"] = json_body
+            async with self._session.post(f"{BASE_URL}{path}", **kwargs) as resp:
                 if resp.status == 401:
                     raise AuthExpired(f"{path} rejected the access token")
+                if not resp.ok:
+                    body = await resp.text()
+                    _LOGGER.warning("HTTP %d from %s: %.300s", resp.status, path, body)
                 resp.raise_for_status()
+        except aiohttp.ClientResponseError as err:
+            raise CannotConnect(f"HTTP {err.status} from {path}") from err
         except aiohttp.ClientError as err:
             raise CannotConnect(f"Network error calling {path}") from err
 

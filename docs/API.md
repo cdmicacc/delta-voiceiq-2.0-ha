@@ -42,8 +42,13 @@ Intervals: 0=today (1 point), 1=week (7 points), 2=month (~30), 3=year (12)
 CDC hand wash cycle: 5s rinse, 20s pause, 10s rinse at 95F.
 
 ```
-POST /api/voice/v4/handWashMode
+POST /api/voice/v4/handWashMode?macAddress=MAC
+Content-Type: application/json
+
+{}
 ```
+
+Requires `Content-Type: application/json` (even with an empty body) — omitting it returns 415.
 
 ## UserInfo (v2)
 
