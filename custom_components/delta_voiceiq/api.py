@@ -144,7 +144,7 @@ class DeltaVoiceIQClient:
         except Exception as err:  # noqa: BLE001 - any of decode/parse/key-lookup can fail here
             _LOGGER.warning(
                 "Failed to decode/extract accessToken from PostAuth payload (payload=%r): %s",
-                b64_payload[:80],
+                b64_payload,
                 err,
             )
             raise CannotConnect("Could not parse PostAuth response") from err
