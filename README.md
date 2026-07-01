@@ -3,7 +3,7 @@
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1+-blue?logo=home-assistant)](https://www.home-assistant.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![HACS](https://img.shields.io/badge/HACS-Required-orange)](https://hacs.xyz)
-[![VoiceIQ](https://img.shields.io/badge/VoiceIQ-Gen%202-green)](https://www.deltafaucet.com/voiceiq)
+[![VoiceIQ](https://img.shields.io/badge/VoiceIQ-Gen%201%2B2-green)](https://www.deltafaucet.com/voiceiq)
 
 > A complete reverse-engineered integration of **Delta VoiceIQ Version 2** smart faucets with Home Assistant. Control your faucet, dispense precise amounts, track water usage, and manage auth tokens -- all without the official app.
 
@@ -25,7 +25,7 @@
 | VoiceIQ API | v2/v3/v4 on `device.deltafaucet.com` |
 | Home Assistant | 2024.1+ (tested through 2026.4) |
 | Sign-in: Amazon | Confirmed working |
-| Sign-in: Apple | Works with old implementation; new auth flow not yet re-tested |
+| Sign-in: Apple | Not yet confirmed with this integration |
 | Sign-in: Google | Untested |
 
 **Gen 1 vs Gen 2:** The integration was originally built targeting Gen 2 and has since been confirmed working on Gen 1 as well. Both use the same API endpoints. The `Model` diagnostic sensor on the device shows your product ID (`DELTA1-VOICE` or `DELTA2-VOICE`).
@@ -38,7 +38,7 @@
 2. In HACS, add this repository as a **custom repository**: `https://github.com/cdmicacc/delta-voiceiq-2.0-ha`.
 3. Install **Delta VoiceIQ** from HACS, then restart Home Assistant.
 4. Go to **Settings → Devices & Services → Add Integration**, search for **Delta VoiceIQ**, and follow the setup wizard.
-5. During setup you'll pick a sign-in provider (Apple/Google/Amazon), sign in to Delta in a new browser tab, and copy a one-time code from that tab's redirect response back into the wizard. No mitmproxy, no `secrets.yaml`, no MAC address or user ID to look up by hand — the integration discovers your device automatically.
+5. During setup you'll pick a sign-in provider (Apple/Google/Amazon), sign in to Delta in a new browser tab, and copy a one-time code from that tab's redirect response back into the wizard. The integration discovers your device automatically.
 
 ---
 
@@ -47,7 +47,7 @@
 If you previously installed this via `packages/delta_voiceiq.yaml`:
 
 1. Remove `packages/delta_voiceiq.yaml`, `www/delta-refresh.html`, and `scripts/delta_token_exchange.sh` from your `/config` directory, and delete the `delta_token`/`delta_mac_address`/`delta_user_id` entries from `secrets.yaml`.
-2. Install the integration via HACS (Quick Start above) and run through setup once — same sign-in-and-paste-code motion you already know from the old refresh page, but you won't need to look up your MAC address or user ID this time.
+2. Install the integration via HACS (Quick Start above) and run through setup once.
 3. Update any automations, scripts, or dashboards that reference the old entities (`input_boolean.delta_faucet_state`, `sensor.delta_faucet_usage_*`, `script.delta_faucet_*`) to the new ones (`valve.<device>_*`, `sensor.<device>_usage_*`, the `delta_voiceiq.dispense`/`delta_voiceiq.hand_wash` services). There is no automatic migration path — the old entities are unstructured helpers with no natural 1:1 mapping to the new device-scoped entities, so this is a one-time manual cleanup.
 
 ---
@@ -124,11 +124,11 @@ See [docs/AUTH.md](docs/AUTH.md) for the full deep dive.
 
 ## Refreshing Your Token
 
-Delta's VoiceIQ token has no refresh token and lasts about 60 days, so refreshing is still a manual, occasional step — but it's now a guided flow inside Home Assistant instead of a separate web page and shell script.
+Delta's VoiceIQ token lasts about 60 days and cannot be refreshed automatically — reauthentication is an occasional manual step handled entirely within Home Assistant.
 
 - **Proactive warning:** once your token has fewer than 7 days left, a Repair issue appears in **Settings → Repairs** telling you to reauthenticate.
-- **Reactive trigger:** if the token has already expired and an API call fails, Home Assistant automatically starts a reauthentication flow for the integration (look for a "Reauthenticate" prompt on the Delta VoiceIQ entry in **Settings → Devices & Services**, and/or an entry in **Settings → Repairs** — confirm which surface(s) you actually see and update this note accordingly once you've gone through it once).
-- **To refresh:** follow the same sign-in-and-paste-a-code steps as initial setup (step 5 above) — the wizard reuses the exact same flow for both setup and reauthentication.
+- **Reactive trigger:** if the token has already expired and an API call fails, Home Assistant automatically starts a reauthentication flow (look for a "Reauthenticate" prompt on the Delta VoiceIQ entry in **Settings → Devices & Services**, or an entry in **Settings → Repairs**).
+- **To refresh:** follow the same sign-in-and-paste-a-code steps as initial setup — the wizard reuses the same flow for both setup and reauthentication.
 
 ---
 
@@ -221,8 +221,8 @@ Token expired. Go to **Settings → Devices & Services**, find the Delta VoiceIQ
 **Q: Can I use the DFC@Home / Azure B2C token?**
 No. Different systems, different tokens. Only VoiceIQ tokens work.
 
-**Q: Gen 1 module?**
-Untested but likely works. The API endpoints should be the same. Please open an issue with your results.
+**Q: Which VoiceIQ module generations are supported?**
+Both Gen 1 (`DELTA1-VOICE`) and Gen 2 (`DELTA2-VOICE`). Check the **Model** diagnostic sensor on your device to see which you have.
 
 **Q: Dispense amount inaccurate?**
 Accuracy drops below 4oz (118ml). The faucet also has a 4-minute auto-shutoff, capping max dispense at roughly 7.2 gallons.
