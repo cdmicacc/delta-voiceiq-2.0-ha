@@ -20,7 +20,7 @@
 
 | Component | Tested |
 |-----------|--------|
-| VoiceIQ Module | Gen 1 (`DELTA1-VOICE`) — Gen 2 (`DELTA2-VOICE`) expected to work, not yet confirmed |
+| VoiceIQ Module | Gen 1 (`DELTA1-VOICE`) and Gen 2 (`DELTA2-VOICE`) |
 | DFC@Home App | 2.6.0 (iOS) |
 | VoiceIQ API | v2/v3/v4 on `device.deltafaucet.com` |
 | Home Assistant | 2024.1+ (tested through 2026.4) |
@@ -28,7 +28,7 @@
 | Sign-in: Apple | Works with old implementation; new auth flow not yet re-tested |
 | Sign-in: Google | Untested |
 
-**Gen 1 vs Gen 2:** The integration has been tested with a Gen 1 module (`DELTA1-VOICE`). Gen 2 is expected to work — the API endpoints are the same — but has not been confirmed. The `Model` diagnostic sensor on the device will show your product ID so you know which you have.
+**Gen 1 vs Gen 2:** The integration was originally built targeting Gen 2 and has since been confirmed working on Gen 1 as well. Both use the same API endpoints. The `Model` diagnostic sensor on the device shows your product ID (`DELTA1-VOICE` or `DELTA2-VOICE`).
 
 ---
 
