@@ -44,7 +44,7 @@
 2. In HACS, add this repository as a **custom repository**: `https://github.com/cdmicacc/delta-voiceiq-2.0-ha`.
 3. Install **Delta VoiceIQ** from HACS, then restart Home Assistant.
 4. Go to **Settings → Devices & Services → Add Integration**, search for **Delta VoiceIQ**, and follow the setup wizard.
-5. During setup you'll pick a sign-in provider (Apple/Google/Amazon), sign in to Delta in a new browser tab, copy a one-time code out of that tab's DevTools console, and paste it back into the wizard. No mitmproxy, no `secrets.yaml`, no MAC address or user ID to look up by hand — the integration discovers your device automatically.
+5. During setup you'll pick a sign-in provider (Apple/Google/Amazon), sign in to Delta in a new browser tab, and copy a one-time code from that tab's redirect response back into the wizard. No mitmproxy, no `secrets.yaml`, no MAC address or user ID to look up by hand — the integration discovers your device automatically.
 
 ---
 
@@ -110,7 +110,7 @@ User-Agent: DFCatHome/2.6.0 CFNetwork/3860.400.51 Darwin/25.3.0
 | `/api/device/v3/ToggleWater?macAddress=MAC&toggle=on\|off` | POST | Turn faucet on/off |
 | `/api/device/v2/Dispense?macAddress=MAC&milliliters=N` | POST | Dispense specific amount (ml) |
 | `/api/device/v2/UsageReport?macAddress=MAC&interval=N` | GET | Usage (0=today, 1=week, 2=month, 3=year) |
-| `/api/voice/v4/handWashMode` | POST | Hand wash mode |
+| `/api/voice/v4/handWashMode?macAddress=MAC` | POST | Hand wash mode (requires `Content-Type: application/json`) |
 | `/api/user/v2/UserInfo` | GET | User info, devices, containers |
 
 See [docs/API.md](docs/API.md) for full details.
@@ -185,7 +185,7 @@ automation:
     action:
       - service: delta_voiceiq.dispense
         target:
-          entity_id: valve.delta_voiceiq_faucet
+          entity_id: valve.kitchen_faucet   # replace with your device's valve entity ID
         data:
           amount: 946
           unit: ml
@@ -197,14 +197,14 @@ automation:
   - alias: "Faucet Auto-Off"
     trigger:
       - platform: state
-        entity_id: valve.delta_voiceiq_faucet
+        entity_id: valve.kitchen_faucet   # replace with your device's valve entity ID
         to: "open"
         for:
           minutes: 5
     action:
       - service: valve.close_valve
         target:
-          entity_id: valve.delta_voiceiq_faucet
+          entity_id: valve.kitchen_faucet   # replace with your device's valve entity ID
 ```
 
 ---
@@ -213,7 +213,7 @@ automation:
 
 ### General
 
-**Q: 401 Unauthorized on REST commands?**
+**Q: 401 Unauthorized / authentication errors?**
 Token expired. Go to **Settings → Devices & Services**, find the Delta VoiceIQ integration, and click the ⋮ menu to select "Reauthenticate".
 
 **Q: Can I use the DFC@Home / Azure B2C token?**
@@ -226,7 +226,7 @@ Untested but likely works. The API endpoints should be the same. Please open an 
 Accuracy drops below 4oz (118ml). The faucet also has a 4-minute auto-shutoff, capping max dispense at roughly 7.2 gallons.
 
 **Q: Usage sensors show "unknown" after restart?**
-REST sensors need their first poll cycle after a restart. They will populate automatically within 10 minutes, or you can force refresh in Developer Tools > Services > `homeassistant.update_entity`.
+Sensors need their first poll cycle after a restart. They will populate automatically within 10 minutes, or you can force refresh in Developer Tools > Services > `homeassistant.update_entity`.
 
 ### Dashboard
 
@@ -241,8 +241,8 @@ If you build a custom dashboard card using Mushroom + card-mod, add `entities` t
 ```yaml
 card_mod:
   entities:
-    - valve.delta_voiceiq_faucet
-    - sensor.delta_voiceiq_usage_today
+    - valve.kitchen_faucet          # replace with your device's valve entity ID
+    - sensor.kitchen_faucet_usage_today   # replace with your device's sensor entity ID
 ```
 (This is not needed if using the default Entities card.)
 
@@ -251,11 +251,11 @@ card_mod:
 **Q: How do I refresh my token?**
 See the "Refreshing Your Token" section above. When your token nears expiry (< 7 days), a Repair issue will appear in **Settings → Repairs**. Follow the same sign-in-and-paste-code steps as initial setup.
 
-**Q: Where do I find the delta code after signing in during reauthentication?**
-Open Chrome DevTools **before** signing in (right-click > Inspect > Console tab). After you sign in, the `justaddwater://` redirect URL with your delta code appears in the Console output. It does NOT appear in the address bar.
-
-**Q: Can I use Safari for token reauthentication?**
-No. Use Chrome — Safari does not work reliably on any platform (Mac, iOS, iPad).
+**Q: Where do I find the delta code after signing in?**
+After signing in, Delta redirects to a `justaddwater://` URL your browser can't open — the code is embedded in that URL. How to extract it depends on your browser:
+- **Firefox:** Open the Network tab before clicking sign in. Find the failed redirect request and look at its `Location` response header.
+- **Chrome:** Open DevTools Console (right-click > Inspect > Console) before signing in. After sign in, the `justaddwater://` line appears in the Console output.
+- **Safari:** Not recommended — does not work reliably on Mac, iOS, or iPad.
 
 **Q: Apple Sign-In shows "Your request could not be completed"?**
 Apple rate-limits authentication attempts. Wait 10-15 minutes and try again.
@@ -274,7 +274,7 @@ Not affiliated with Delta Faucet or Masco Corporation. Use at your own risk. Aut
 **Dashboard Card Styling:**
 - [@Anashost](https://github.com/Anashost) - Badge theme and water-fill animations inspired by [HA Animated Cards](https://github.com/Anashost/HA-Animated-cards/blob/main/appliances.md)
 
-**Required Custom Components:**
+**Optional Custom Components (for enhanced dashboard experience):**
 - [@piitaya](https://github.com/piitaya) - [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom)
 - [@thomasloven](https://github.com/thomasloven) - [card-mod](https://github.com/thomasloven/lovelace-card-mod) and [browser_mod](https://github.com/thomasloven/hass-browser_mod)
 - [HACS](https://hacs.xyz) - Home Assistant Community Store

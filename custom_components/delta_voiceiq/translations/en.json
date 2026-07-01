@@ -10,7 +10,7 @@
       },
       "code": {
         "title": "Paste your Delta sign-in code",
-        "description": "1. Open this link and sign in: {login_url}\n2. **Before you sign in**, open DevTools (right-click → Inspect → Console tab) on the tab that opens — the redirect only shows up there.\n3. After signing in, find a line in the Console containing `justaddwater://?code=delta.code.XXXXX`. Copy that whole line, or just the `delta.code.XXXXX` part.\n4. Paste it below.",
+        "description": "1. Open this link and sign in: {login_url}\n2. After signing in, you'll be redirected to a `justaddwater://` URL that your browser can't open — this is expected.\n   - **Firefox:** Open the Network tab before clicking sign in. Find the failed redirect request and copy the `Location` response header — it starts with `justaddwater://`.\n   - **Chrome:** Open DevTools Console (right-click → Inspect → Console) before signing in. After sign in, find the line containing `justaddwater://?code=delta.code.XXXXX`.\n3. Paste the full URL or just the `delta.code.XXXXX` part below.",
         "data": {
           "code": "Delta sign-in code or full redirect URL"
         }

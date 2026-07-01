@@ -62,15 +62,15 @@ def _fake_access_token(exp: int = 9999999999) -> str:
     return _b64(jwt)
 
 
-REAL_USER_INFO_RESPONSE = {
-    "user": {"id": "9cdf1a02bde344ca938157c9ab086278"},
+FAKE_USER_INFO_RESPONSE = {
+    "user": {"id": "00000000000000000000000000000001"},
     "devices": [
         {
-            "id": "825e5c85eb6144f8b3ef76370665344a",
+            "id": "00000000000000000000000000000002",
             "name": "Kitchen Faucet",
-            "macAddress": "84712732CBBB",
+            "macAddress": "AABBCCDDEEFF",
             "isDefault": True,
-            "productId": "DELTA1-VOICE",
+            "productId": "DELTA2-VOICE",
             "currentUsage": "21.40",
         }
     ],
@@ -92,17 +92,17 @@ async def test_exchange_code_success():
         )
         mocked.get(
             "https://device.deltafaucet.com/api/user/v2/UserInfo",
-            payload=REAL_USER_INFO_RESPONSE,
+            payload=FAKE_USER_INFO_RESPONSE,
         )
         async with aiohttp.ClientSession() as session:
             client = DeltaVoiceIQClient(session)
             result = await client.exchange_code("delta.code.ABC123")
 
     assert result.access_token == access_token
-    assert result.user_id == "9cdf1a02bde344ca938157c9ab086278"
+    assert result.user_id == "00000000000000000000000000000001"
     assert result.exp_timestamp == 9999999999
     assert len(result.devices) == 1
-    assert result.devices[0].mac_address == "84712732CBBB"
+    assert result.devices[0].mac_address == "AABBCCDDEEFF"
     assert result.devices[0].name == "Kitchen Faucet"
     assert client.access_token == access_token
 
@@ -229,15 +229,16 @@ async def test_dispense_rounds_milliliters_into_request():
 
 
 @pytest.mark.asyncio
-async def test_hand_wash_success():
+async def test_hand_wash_sends_json_content_type():
+    """hand_wash must send Content-Type: application/json or Delta returns 415."""
     with aioresponses() as mocked:
         mocked.post(
-            "https://device.deltafaucet.com/api/voice/v4/handWashMode",
+            "https://device.deltafaucet.com/api/voice/v4/handWashMode?macAddress=AABBCCDDEEFF",
             status=200,
         )
         async with aiohttp.ClientSession() as session:
             client = DeltaVoiceIQClient(session, access_token="tok")
-            await client.hand_wash()
+            await client.hand_wash("AABBCCDDEEFF")
 
 
 @pytest.mark.asyncio

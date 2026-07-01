@@ -6,6 +6,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
+from urllib.parse import unquote
 
 import aiohttp
 
@@ -78,23 +79,17 @@ def extract_code(raw: str) -> str:
     return match.group(1)
 
 
-def _b64_pad(value: str) -> str:
-    """Restore URL-safe base64 padding so base64.b64decode doesn't choke."""
-    value = value.replace("-", "+").replace("_", "/")
-    return value + "=" * (-len(value) % 4)
-
-
 def _decode_exp(access_token: str) -> int | None:
-    """Decode the exp claim from a base64-encoded JWT access token.
+    """Decode the exp claim from a base64url JWT access token.
 
     Returns None (does not raise) on any decode failure — an unparseable
     exp is a degraded-but-survivable state per the design spec, not a
     fatal one; the caller logs and surfaces it via the Token Expiry sensor.
     """
     try:
-        jwt = base64.b64decode(_b64_pad(access_token)).decode("utf-8")
+        jwt = base64.urlsafe_b64decode(access_token + "==").decode("utf-8")
         payload_b64 = jwt.split(".")[1]
-        payload = json.loads(base64.b64decode(_b64_pad(payload_b64)))
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64 + "=="))
         return int(payload["exp"])
     except Exception:  # noqa: BLE001 - any decode failure is the same "unparseable" case
         _LOGGER.warning("Could not parse JWT exp claim from access token", exc_info=True)
@@ -137,9 +132,9 @@ class DeltaVoiceIQClient:
             _LOGGER.warning("PostAuth redirect missing #/auth/ payload: %s", location)
             raise CannotConnect("PostAuth redirect did not contain an auth payload")
 
-        b64_payload = location.split("#/auth/", 1)[1]
+        b64_payload = unquote(location.split("#/auth/", 1)[1])
         try:
-            decoded = json.loads(base64.b64decode(_b64_pad(b64_payload)))
+            decoded = json.loads(base64.b64decode(b64_payload))
             access_token = decoded["Value"]["accessToken"]
         except Exception as err:  # noqa: BLE001 - any of decode/parse/key-lookup can fail here
             _LOGGER.warning("Failed to decode/extract accessToken from PostAuth payload: %s", err)
@@ -190,8 +185,8 @@ class DeltaVoiceIQClient:
             params={"macAddress": mac_address, "milliliters": str(round(milliliters))},
         )
 
-    async def hand_wash(self) -> None:
-        await self._post("/api/voice/v4/handWashMode")
+    async def hand_wash(self, mac_address: str) -> None:
+        await self._post("/api/voice/v4/handWashMode", params={"macAddress": mac_address}, json_body={})
 
     async def get_usage(self, mac_address: str, interval: int) -> float:
         """Return summed usage in gallons for the given interval (0=today,1=week,2=month,3=year)."""
@@ -213,14 +208,25 @@ class DeltaVoiceIQClient:
         except (KeyError, IndexError, TypeError) as err:
             raise CannotConnect("Malformed UsageReport response") from err
 
-    async def _post(self, path: str, params: dict[str, str] | None = None) -> None:
+    async def _post(
+        self,
+        path: str,
+        params: dict[str, str] | None = None,
+        json_body: dict | None = None,
+    ) -> None:
         try:
-            async with self._session.post(
-                f"{BASE_URL}{path}", params=params or {}, headers=self._headers()
-            ) as resp:
+            kwargs: dict = {"params": params or {}, "headers": self._headers()}
+            if json_body is not None:
+                kwargs["json"] = json_body
+            async with self._session.post(f"{BASE_URL}{path}", **kwargs) as resp:
                 if resp.status == 401:
                     raise AuthExpired(f"{path} rejected the access token")
+                if not resp.ok:
+                    body = await resp.text()
+                    _LOGGER.warning("HTTP %d from %s: %.300s", resp.status, path, body)
                 resp.raise_for_status()
+        except aiohttp.ClientResponseError as err:
+            raise CannotConnect(f"HTTP {err.status} from {path}") from err
         except aiohttp.ClientError as err:
             raise CannotConnect(f"Network error calling {path}") from err
 
