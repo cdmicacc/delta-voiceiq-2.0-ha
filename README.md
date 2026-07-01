@@ -9,20 +9,12 @@
 
 ## What This Does
 
-- **On/Off control** via dashboard card, automations, or voice assistants
-- **Metered dispensing** with preset containers (Glass, Coffee Pot, Sink) or custom ml amounts
+- **On/Off control** via automations, voice assistants, or any Lovelace valve card
+- **Metered dispensing** via the `delta_voiceiq.dispense` service with configurable amounts (ml, l, gal, fl oz)
+- **Hand wash mode** via the `delta_voiceiq.hand_wash` service (CDC timed cycle)
 - **Water usage tracking** with daily, weekly, monthly, and yearly sensors
-- **Animated dashboard card** with water-fill icon, flow animations, and usage badge
-- **Rich popup** (browser_mod) with dispense buttons, usage stats, and history graph
-- **Guided token refresh flow** integrated into Home Assistant, no mitmproxy required
-- **Token expiry warnings** via persistent notifications
-
-## Screenshots
-
-| Dashboard Card | Long-Press Popup | Card Flowing |
-|:-:|:-:|:-:|
-| ![Card](docs/images/card-off.png) | ![Popup](docs/images/popup.png) | ![Flowing](docs/images/card-flowing.png) |
-| Animated water-fill icon with usage badge | Dispense buttons, usage stats, history | Bubble animation when faucet is on |
+- **Guided reauthentication flow** inside Home Assistant — no mitmproxy required
+- **Token expiry warnings** via Repair issues (alerts at < 7 days remaining)
 
 ## Compatibility
 
@@ -82,12 +74,6 @@ delta-voiceiq-2.0-ha/
 
 **Home Assistant:**
 - Home Assistant OS or Supervised (2024.1+)
-- File Editor or Studio Code Server add-on
-
-**Optional (for enhanced dashboard experience):**
-- [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom) — for animated water-fill effects
-- [card-mod](https://github.com/thomasloven/lovelace-card-mod) — for dynamic styling and animations
-- [browser_mod](https://github.com/thomasloven/hass-browser_mod) — for long-press popups with dispense buttons and usage stats
 
 ---
 
@@ -146,17 +132,31 @@ Delta's VoiceIQ token has no refresh token and lasts about 60 days, so refreshin
 
 ## Dashboard
 
-The integration provides device entities for your faucet that you can control and monitor via the default Entities card or any custom card.
+The integration registers a **device** in Home Assistant with these entities:
 
-For an enhanced experience with animated water-fill effects, Mushroom + card-mod can be used. The integration's device entities are compatible with any Lovelace card that can display valves, sensors, and services.
+| Entity | Type | Description |
+|--------|------|-------------|
+| `valve.<device>` | Valve | Open/close the faucet |
+| `sensor.<device>_usage_today` | Sensor | Today's usage (gallons) |
+| `sensor.<device>_usage_weekly` | Sensor | This week's usage |
+| `sensor.<device>_usage_monthly` | Sensor | This month's usage |
+| `sensor.<device>_usage_yearly` | Sensor | This year's usage |
+| `sensor.<device>_token_expiry` | Sensor (diagnostic) | Days until token expires |
 
-**Basic setup:**
-1. Install [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom) and [card-mod](https://github.com/thomasloven/lovelace-card-mod) via HACS (optional, for animated effects)
-2. Add a card to your dashboard pointing to your Delta VoiceIQ device
-3. Tap/click to toggle, long-press for more options (if using browser_mod)
+**Quickest setup:** Go to **Settings → Devices & Services → Delta VoiceIQ** → your device → click **"Add to dashboard"**. HA will auto-generate a device card.
 
-**For a rich popup with dispense buttons and usage stats (optional):**
-- Install [browser_mod](https://github.com/thomasloven/hass-browser_mod) via HACS AND add it as an integration (Settings > Devices & Services > Add Integration > Browser Mod)
+**Manual card example:**
+```yaml
+type: entities
+entities:
+  - entity: valve.kitchen_faucet
+  - entity: sensor.kitchen_faucet_usage_today
+  - entity: sensor.kitchen_faucet_usage_weekly
+  - entity: sensor.kitchen_faucet_usage_monthly
+  - entity: sensor.kitchen_faucet_usage_yearly
+```
+
+Replace `kitchen_faucet` with your device's name (lowercase, spaces → underscores).
 
 ### Usage Sensor Polling Schedule
 
@@ -228,24 +228,6 @@ Accuracy drops below 4oz (118ml). The faucet also has a 4-minute auto-shutoff, c
 **Q: Usage sensors show "unknown" after restart?**
 Sensors need their first poll cycle after a restart. They will populate automatically within 10 minutes, or you can force refresh in Developer Tools > Services > `homeassistant.update_entity`.
 
-### Dashboard
-
-**Q: Popup not showing on long-press?**
-browser_mod must be added as an **integration** in HA (Settings > Devices & Services > Add Integration > Browser Mod), not just installed via HACS. After adding, hard-refresh your browser.
-
-**Q: Faucet icon not visible on the card?**
-This can happen on Android tablets running Fully Kiosk Browser. Force-close the browser and reopen. If the issue persists, restart HA.
-
-**Q: Card animations not updating when faucet state changes? (custom dashboards only)**
-If you build a custom dashboard card using Mushroom + card-mod, add `entities` to your card_mod config to explicitly tell card-mod which entities to watch. Example:
-```yaml
-card_mod:
-  entities:
-    - valve.kitchen_faucet          # replace with your device's valve entity ID
-    - sensor.kitchen_faucet_usage_today   # replace with your device's sensor entity ID
-```
-(This is not needed if using the default Entities card.)
-
 ### Token Refresh
 
 **Q: How do I refresh my token?**
@@ -271,12 +253,6 @@ Not affiliated with Delta Faucet or Masco Corporation. Use at your own risk. Aut
 
 ## Credits and Acknowledgments
 
-**Dashboard Card Styling:**
-- [@Anashost](https://github.com/Anashost) - Badge theme and water-fill animations inspired by [HA Animated Cards](https://github.com/Anashost/HA-Animated-cards/blob/main/appliances.md)
-
-**Optional Custom Components (for enhanced dashboard experience):**
-- [@piitaya](https://github.com/piitaya) - [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom)
-- [@thomasloven](https://github.com/thomasloven) - [card-mod](https://github.com/thomasloven/lovelace-card-mod) and [browser_mod](https://github.com/thomasloven/hass-browser_mod)
 - [HACS](https://hacs.xyz) - Home Assistant Community Store
 
 **Tools Used:**
