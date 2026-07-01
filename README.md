@@ -14,20 +14,15 @@
 - **Water usage tracking** with daily, weekly, monthly, and yearly sensors
 - **Animated dashboard card** with water-fill icon, flow animations, and usage badge
 - **Rich popup** (browser_mod) with dispense buttons, usage stats, and history graph
-- **Browser-based token refresh** that eliminates mitmproxy for ongoing use
+- **Guided token refresh flow** integrated into Home Assistant, no mitmproxy required
 - **Token expiry warnings** via persistent notifications
 
 ## Screenshots
 
-| Dashboard Card | Long-Press Popup | Token Refresh |
+| Dashboard Card | Long-Press Popup | Card Flowing |
 |:-:|:-:|:-:|
-| ![Card](docs/images/card-off.png) | ![Popup](docs/images/popup.png) | ![Refresh](docs/images/token-refresh-page.png) |
-| Animated water-fill icon with usage badge | Dispense buttons, usage stats, history | Browser-based token refresh tool |
-
-| Card Flowing | Token Refresh Success |
-|:-:|:-:|
-| ![Flowing](docs/images/card-flowing.png) | ![Success](docs/images/token-refresh-success.png) |
-| Bubble animation when faucet is on | Successful token exchange |
+| ![Card](docs/images/card-off.png) | ![Popup](docs/images/popup.png) | ![Flowing](docs/images/card-flowing.png) |
+| Animated water-fill icon with usage badge | Dispense buttons, usage stats, history | Bubble animation when faucet is on |
 
 ## Compatibility
 
@@ -45,11 +40,21 @@
 
 ## Quick Start
 
-1. Capture your VoiceIQ token using [mitmproxy](docs/MITMPROXY.md) (one-time)
-2. Copy files from this repo into your HA config
-3. Add your token, MAC address, and user ID to `secrets.yaml`
-4. Restart Home Assistant
-5. Add the dashboard card
+1. Install [HACS](https://hacs.xyz) if you don't have it already.
+2. In HACS, add this repository as a **custom repository**: `https://github.com/cdmicacc/delta-voiceiq-2.0-ha`.
+3. Install **Delta VoiceIQ** from HACS, then restart Home Assistant.
+4. Go to **Settings → Devices & Services → Add Integration**, search for **Delta VoiceIQ**, and follow the setup wizard.
+5. During setup you'll pick a sign-in provider (Apple/Google/Amazon), sign in to Delta in a new browser tab, copy a one-time code out of that tab's DevTools console, and paste it back into the wizard. No mitmproxy, no `secrets.yaml`, no MAC address or user ID to look up by hand — the integration discovers your device automatically.
+
+---
+
+## Migrating From the Old Package-Based Setup
+
+If you previously installed this via `packages/delta_voiceiq.yaml`:
+
+1. Remove `packages/delta_voiceiq.yaml`, `www/delta-refresh.html`, and `scripts/delta_token_exchange.sh` from your `/config` directory, and delete the `delta_token`/`delta_mac_address`/`delta_user_id` entries from `secrets.yaml`.
+2. Install the integration via HACS (Quick Start above) and run through setup once — same sign-in-and-paste-code motion you already know from the old refresh page, but you won't need to look up your MAC address or user ID this time.
+3. Update any automations, scripts, or dashboards that reference the old entities (`input_boolean.delta_faucet_state`, `sensor.delta_faucet_usage_*`, `script.delta_faucet_*`) to the new ones (`valve.<device>_*`, `sensor.<device>_usage_*`, the `delta_voiceiq.dispense`/`delta_voiceiq.hand_wash` services). There is no automatic migration path — the old entities are unstructured helpers with no natural 1:1 mapping to the new device-scoped entities, so this is a one-time manual cleanup.
 
 ---
 
@@ -59,17 +64,12 @@
 delta-voiceiq-2.0-ha/
 ├── README.md
 ├── LICENSE
+├── hacs.json
 ├── docs/
 │   ├── API.md                         # Full API reference
-│   ├── AUTH.md                        # Authentication deep dive
-│   └── MITMPROXY.md                   # mitmproxy setup guide
-├── packages/
-│   └── delta_voiceiq.yaml             # All-in-one HA package
-├── www/
-│   └── delta-refresh.html             # Token refresh web page
-├── scripts/
-│   └── delta_token_exchange.sh        # Token exchange shell script
-└── secrets.yaml.example               # Template for secrets
+│   └── AUTH.md                        # Authentication deep dive
+└── custom_components/
+    └── delta_voiceiq/                  # The HACS integration
 ```
 
 ---
@@ -83,16 +83,11 @@ delta-voiceiq-2.0-ha/
 **Home Assistant:**
 - Home Assistant OS or Supervised (2024.1+)
 - File Editor or Studio Code Server add-on
-- Terminal & SSH add-on (for shell scripts)
 
-**HACS Components:**
-- [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom)
-- [card-mod](https://github.com/thomasloven/lovelace-card-mod)
-- [browser_mod](https://github.com/thomasloven/hass-browser_mod) (optional, for popup)
-
-**For initial token capture only:**
-- [mitmproxy](https://mitmproxy.org/) on a computer
-- DFC@Home app on your phone
+**Optional (for enhanced dashboard experience):**
+- [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom) — for animated water-fill effects
+- [card-mod](https://github.com/thomasloven/lovelace-card-mod) — for dynamic styling and animations
+- [browser_mod](https://github.com/thomasloven/hass-browser_mod) — for long-press popups with dispense buttons and usage stats
 
 ---
 
@@ -133,152 +128,35 @@ Delta uses **two completely separate** auth systems. Only VoiceIQ is needed.
 | Refresh token | No | Yes |
 | Login | Apple/Google/Amazon | Azure AD B2C |
 
-The VoiceIQ system has no refresh token. You must re-authenticate every ~60 days. The included browser-based refresh page makes this a 30-second process.
+The VoiceIQ system has no refresh token. You must re-authenticate every ~60 days. The in-HA reauthentication flow makes this straightforward.
 
 See [docs/AUTH.md](docs/AUTH.md) for the full deep dive.
 
 ---
 
-## Initial Token Capture
+## Refreshing Your Token
 
-You need mitmproxy **once** to capture the initial VoiceIQ token. After that, use the browser-based refresh page.
+Delta's VoiceIQ token has no refresh token and lasts about 60 days, so refreshing is still a manual, occasional step — but it's now a guided flow inside Home Assistant instead of a separate web page and shell script.
 
-**Quick version:**
-1. Install mitmproxy: `brew install mitmproxy` (macOS) or `pip install mitmproxy`
-2. Run: `mitmweb --listen-port 8080`
-3. Set your phone's WiFi proxy to your computer's IP on port 8080
-4. Visit `http://mitm.it` on your phone, install and trust the CA certificate
-5. Open the DFC@Home app and sign in
-6. In mitmweb, filter for `device.deltafaucet.com` and copy the `Authorization: Bearer ...` token
-7. Also grab your MAC address and user ID from the `/api/user/v2/UserInfo` response
-8. Remove the proxy from your phone when done
-
-**Important: Token format.** The token captured from mitmproxy is a **base64-encoded JWT**, not a raw JWT. When you save it to `secrets.yaml`, use it exactly as captured (with the `Bearer` prefix):
-```yaml
-delta_token: "Bearer ZXlKaGJHY2lPaUpJ..."
-```
-Do NOT decode the base64 first. Delta's API expects the base64-encoded version. If you want to check the token's expiry date, decode the base64 string first, then paste the resulting JWT into [jwt.io](https://jwt.io).
-
-**For the full step-by-step guide with troubleshooting, see [docs/MITMPROXY.md](docs/MITMPROXY.md).**
-
----
-
-## Home Assistant Setup
-
-### Option A: Package (Recommended)
-
-1. Copy `packages/delta_voiceiq.yaml` to `/config/packages/`
-2. Enable packages in `configuration.yaml`:
-   ```yaml
-   homeassistant:
-     packages: !include_dir_named packages
-   ```
-3. Copy `www/delta-refresh.html` to `/config/www/`
-4. Copy `scripts/delta_token_exchange.sh` to `/config/scripts/`
-5. Run: `chmod +x /config/scripts/delta_token_exchange.sh`
-6. Add to `secrets.yaml`:
-   ```yaml
-   delta_token: "Bearer eyJhbGciOi..."
-   delta_mac_address: "YOUR_MAC_ADDRESS"
-   delta_user_id: "YOUR_USER_ID"
-   ```
-7. Restart HA
-
-### Option B: Manual
-
-Copy each section from the package file into your existing `configuration.yaml`.
-
----
-
-## Token Lifecycle: Expiry, Notification, and Refresh
-
-The VoiceIQ token lasts ~60 days with **no refresh token**. Here is the full lifecycle:
-
-### How You Will Know It Is Expiring
-
-1. **Dashboard popup:** The faucet card popup shows a token status indicator with days remaining
-2. **Template sensor:** `sensor.delta_token_expiry` always shows the days left (e.g. "59 days")
-3. **Persistent notification:** An automation checks daily at 9:00 AM. When fewer than 7 days remain, you will see a persistent notification in HA:
-
-> **Delta Faucet Token Expiring Soon**
-> Your Delta faucet API token expires in less than 7 days.
-> Visit /local/delta-refresh.html to refresh it.
-
-### How To Refresh (30 seconds)
-
-**Prerequisites (one-time setup):**
-- Create a **Long-Lived Access Token** in HA: click your profile icon (bottom left) > scroll to bottom > Long-Lived Access Tokens > Create Token. **Save this token somewhere safe** (password manager, notes app, etc.) as HA only shows it once. You will need it every time you refresh.
-- Make the shell script executable: in Terminal & SSH add-on, run `chmod +x /config/scripts/delta_token_exchange.sh`
-
-**Refresh steps:**
-
-1. Open **Chrome on your Mac** (Safari does not work reliably for this flow) and go to `http://<your-ha-ip>:8123/local/delta-refresh.html`
-
-2. Fill in the **Step 0: HA Connection Settings** at the top of the page with your HA URL and Long-Lived Access Token. The page saves these in your browser so you only need to enter them once per browser. If you clear your browser data or use a different browser, you will need to enter them again.
-
-![Token Refresh Page](docs/images/token-refresh-page.png)
-
-3. Click your sign-in provider (Apple, Google, or Amazon) to open Delta's login page in a **new tab**
-
-4. **In the new tab that opened**, open Chrome DevTools: right-click anywhere > **Inspect** > click the **Console** tab. Keep this open.
-
-5. Sign in with your credentials (passkey, password, etc.)
-
-6. **For Apple Sign-In:** After authenticating, you will see a page asking "Do you want to continue using Delta Faucet Cloud with your Apple Account?" Click **Continue**. The page will appear to do nothing, but the redirect URL with your delta code will appear in the **Console** tab.
-
-7. Look in the Console for a line containing `justaddwater://?code=delta.code.XXXXX&state=YYY`. Copy the full URL or just the `delta.code.XXXXX` part.
-
-8. Go back to the refresh page tab, paste it into the Delta Auth Code field
-
-9. Click **Exchange Token**
-
-10. Within ~15 seconds you will see the result:
-
-![Token Refresh Success](docs/images/token-refresh-success.png)
-
-11. **Restart HA** for the new token to take effect
-
-**Important notes:**
-- **Chrome only.** Safari does not work on any platform (Mac, iOS, iPad).
-- **DevTools must be open on the sign-in tab** (the new tab that opens after clicking Apple/Google/Amazon), not the refresh page tab.
-- **This integration has been tested with Apple Sign-In and confirmed working with Amazon Sign-In** (thanks to community feedback u/Next_Drive9802). Google Sign-In should work the same way but has not been tested yet. If you test with Google, please open an issue with your results.
-- **Apple Sign-In with Hide My Email:** If you used Apple's "Hide My Email", you can only sign in on devices where your Apple ID keychain/passkey is available. In Chrome, use the "Sign in with passkey from nearby device" option which authenticates via your iPhone's Face ID/Touch ID.
-- **Apple rate limiting:** If you see "Your request could not be completed because of an error", wait 10-15 minutes. Apple rate-limits rapid authentication attempts.
-
-### What Happens Behind the Scenes
-
-The shell script (`delta_token_exchange.sh`):
-1. Calls Delta PostAuth endpoint with your code
-2. Captures the 302 redirect containing a base64-encoded JWT
-3. Decodes the double-encoded token (base64 > JSON > base64 > JWT)
-4. Validates the JWT format
-5. Backs up `secrets.yaml` to `secrets.yaml.bak`
-6. Writes the new token to `secrets.yaml`
-7. Updates the `exp_ts` timestamp in your automations and configuration
-8. Reports status via the HA Supervisor API
-
-### What If the Token Expires Completely?
-
-If the token expires before you refresh, your REST commands will return 401 errors and the usage sensors will go `unknown`. The faucet itself still works manually and via Alexa/Google. Just refresh the token using the steps above and restart HA.
+- **Proactive warning:** once your token has fewer than 7 days left, a Repair issue appears in **Settings → Repairs** telling you to reauthenticate.
+- **Reactive trigger:** if the token has already expired and an API call fails, Home Assistant automatically starts a reauthentication flow for the integration (look for a "Reauthenticate" prompt on the Delta VoiceIQ entry in **Settings → Devices & Services**, and/or an entry in **Settings → Repairs** — confirm which surface(s) you actually see and update this note accordingly once you've gone through it once).
+- **To refresh:** follow the same sign-in-and-paste-a-code steps as initial setup (step 5 above) — the wizard reuses the exact same flow for both setup and reauthentication.
 
 ---
 
 ## Dashboard
 
-The card uses Mushroom + card-mod for animated water-fill effects.
-- **Tap** = toggle on/off
-- **Long press** = open popup with dispense buttons, usage stats, history
+The integration provides device entities for your faucet that you can control and monitor via the default Entities card or any custom card.
 
-**To add the card to your dashboard:**
-1. Open your dashboard, click the three dots menu > Edit Dashboard
-2. Navigate to the section where you want the card
-3. Click + Add Card > search for "Manual" or "YAML"
-4. Paste the contents of [`dashboard/card.yaml`](dashboard/card.yaml)
-5. Save
+For an enhanced experience with animated water-fill effects, Mushroom + card-mod can be used. The integration's device entities are compatible with any Lovelace card that can display valves, sensors, and services.
 
-The card YAML includes the complete configuration with animated water-fill styling, the browser_mod popup, dispense buttons, usage stats, history graph, and token expiry indicator. Customize the container names, sizes (in ml), and icons to match your faucet's setup.
+**Basic setup:**
+1. Install [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom) and [card-mod](https://github.com/thomasloven/lovelace-card-mod) via HACS (optional, for animated effects)
+2. Add a card to your dashboard pointing to your Delta VoiceIQ device
+3. Tap/click to toggle, long-press for more options (if using browser_mod)
 
-**Important:** browser_mod must be added as an integration (Settings > Devices & Services > Add Integration > Browser Mod), not just installed via HACS.
+**For a rich popup with dispense buttons and usage stats (optional):**
+- Install [browser_mod](https://github.com/thomasloven/hass-browser_mod) via HACS AND add it as an integration (Settings > Devices & Services > Add Integration > Browser Mod)
 
 ### Usage Sensor Polling Schedule
 
@@ -305,9 +183,12 @@ automation:
       - platform: time
         at: "06:30:00"
     action:
-      - service: rest_command.delta_faucet_dispense
+      - service: delta_voiceiq.dispense
+        target:
+          entity_id: valve.delta_voiceiq_faucet
         data:
-          milliliters: 946
+          amount: 946
+          unit: ml
 ```
 
 ### Faucet Auto-Off Safety
@@ -316,15 +197,14 @@ automation:
   - alias: "Faucet Auto-Off"
     trigger:
       - platform: state
-        entity_id: input_boolean.delta_faucet_state
-        to: "on"
+        entity_id: valve.delta_voiceiq_faucet
+        to: "open"
         for:
           minutes: 5
     action:
-      - service: rest_command.delta_faucet_off
-      - service: input_boolean.turn_off
+      - service: valve.close_valve
         target:
-          entity_id: input_boolean.delta_faucet_state
+          entity_id: valve.delta_voiceiq_faucet
 ```
 
 ---
@@ -334,7 +214,7 @@ automation:
 ### General
 
 **Q: 401 Unauthorized on REST commands?**
-Token expired. Refresh at `/local/delta-refresh.html`.
+Token expired. Go to **Settings → Devices & Services**, find the Delta VoiceIQ integration, and click the ⋮ menu to select "Reauthenticate".
 
 **Q: Can I use the DFC@Home / Azure B2C token?**
 No. Different systems, different tokens. Only VoiceIQ tokens work.
@@ -356,44 +236,32 @@ browser_mod must be added as an **integration** in HA (Settings > Devices & Serv
 **Q: Faucet icon not visible on the card?**
 This can happen on Android tablets running Fully Kiosk Browser. Force-close the browser and reopen. If the issue persists, restart HA.
 
-**Q: Card animations not updating when faucet state changes?**
-Add `entities` to your card_mod config to explicitly tell card-mod which entities to watch:
+**Q: Card animations not updating when faucet state changes? (custom dashboards only)**
+If you build a custom dashboard card using Mushroom + card-mod, add `entities` to your card_mod config to explicitly tell card-mod which entities to watch. Example:
 ```yaml
 card_mod:
   entities:
-    - input_boolean.delta_faucet_state
-    - sensor.delta_faucet_usage_today
+    - valve.delta_voiceiq_faucet
+    - sensor.delta_voiceiq_usage_today
 ```
+(This is not needed if using the default Entities card.)
 
 ### Token Refresh
 
-**Q: "Failed to set auth code in HA (401)" error?**
-You need to fill in **Step 0: HA Connection Settings** at the top of the refresh page. Enter your HA URL and a Long-Lived Access Token (create one at: HA Profile > Long-Lived Access Tokens).
+**Q: How do I refresh my token?**
+See the "Refreshing Your Token" section above. When your token nears expiry (< 7 days), a Repair issue will appear in **Settings → Repairs**. Follow the same sign-in-and-paste-code steps as initial setup.
 
-**Q: "Shell script timed out" error?**
-The shell script may not be executable. Fix with:
-```bash
-chmod +x /config/scripts/delta_token_exchange.sh
-```
-If it still fails, check the log:
-```bash
-cat /config/www/delta_token_exchange.log
-```
-
-**Q: Where do I find the delta code after signing in?**
+**Q: Where do I find the delta code after signing in during reauthentication?**
 Open Chrome DevTools **before** signing in (right-click > Inspect > Console tab). After you sign in, the `justaddwater://` redirect URL with your delta code appears in the Console output. It does NOT appear in the address bar.
 
-**Q: Can I use Safari for token refresh?**
-No. Safari does not work reliably on any platform (Mac, iOS, iPad). It either dismisses the redirect URL too quickly, shows a "cannot open page" error without preserving the URL, or hands it off to the DFC@Home app on iOS. Use Chrome.
+**Q: Can I use Safari for token reauthentication?**
+No. Use Chrome — Safari does not work reliably on any platform (Mac, iOS, iPad).
 
 **Q: Apple Sign-In shows "Your request could not be completed"?**
 Apple rate-limits authentication attempts. Wait 10-15 minutes and try again.
 
 **Q: I used "Hide My Email" with Apple and can't sign in on Chrome?**
 In Chrome, when the Apple sign-in page loads, look for "Sign in with passkey from nearby device" or a passkey icon. This lets you authenticate via your iPhone's Face ID/Touch ID even though you're in Chrome.
-
-**Q: Which browser should I use for token refresh?**
-**Chrome only.** Open DevTools (Inspect > Console) before signing in to see the delta code.
 
 ---
 

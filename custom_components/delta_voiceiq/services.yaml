@@ -1,0 +1,36 @@
+dispense:
+  name: Dispense
+  description: Dispense a specific amount of water from the faucet.
+  target:
+    entity:
+      domain: valve
+  fields:
+    amount:
+      name: Amount
+      description: How much to dispense, in the chosen unit.
+      required: true
+      example: 355
+      selector:
+        number:
+          min: 0
+          max: 15000
+          step: 1
+    unit:
+      name: Unit
+      description: Unit for the amount field.
+      required: false
+      default: ml
+      selector:
+        select:
+          options:
+            - ml
+            - l
+            - gal
+            - fl_oz
+
+hand_wash:
+  name: Hand wash mode
+  description: Run the faucet's hand-wash cycle (5s rinse, 20s pause, 10s rinse at 95F).
+  target:
+    entity:
+      domain: valve

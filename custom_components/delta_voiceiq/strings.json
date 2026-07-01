@@ -1,0 +1,46 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sign in to Delta",
+        "description": "Pick the provider you use to sign in to the DFC@Home app.",
+        "data": {
+          "provider": "Sign-in provider"
+        }
+      },
+      "code": {
+        "title": "Paste your Delta sign-in code",
+        "description": "1. Open this link and sign in: {login_url}\n2. **Before you sign in**, open DevTools (right-click → Inspect → Console tab) on the tab that opens — the redirect only shows up there.\n3. After signing in, find a line in the Console containing `justaddwater://?code=delta.code.XXXXX`. Copy that whole line, or just the `delta.code.XXXXX` part.\n4. Paste it below.",
+        "data": {
+          "code": "Delta sign-in code or full redirect URL"
+        }
+      },
+      "device": {
+        "title": "Select your faucet",
+        "description": "Multiple VoiceIQ devices were found on this account. Pick the one to add.",
+        "data": {
+          "mac_address": "Faucet"
+        }
+      }
+    },
+    "error": {
+      "invalid_code": "That code was rejected by Delta. It may be expired or already used — sign in again to get a fresh one.",
+      "cannot_connect": "Could not complete sign-in with Delta. Check the Home Assistant logs for details and try again."
+    },
+    "abort": {
+      "no_devices_found": "No VoiceIQ devices were found on this Delta account.",
+      "already_configured": "This faucet is already configured.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "issues": {
+    "exp_unparseable": {
+      "title": "Delta faucet token expiry could not be determined",
+      "description": "Home Assistant could not read the expiration date from your Delta access token. Check the Home Assistant logs for details — this usually means Delta changed its token format."
+    },
+    "expiring_soon": {
+      "title": "Delta faucet token expires soon",
+      "description": "Your Delta faucet access token expires in {days} days. Go to Settings → Devices & Services and reauthenticate to refresh it."
+    }
+  }
+}
