@@ -142,7 +142,11 @@ class DeltaVoiceIQClient:
             decoded = json.loads(base64.b64decode(_b64_pad(b64_payload)))
             access_token = decoded["Value"]["accessToken"]
         except Exception as err:  # noqa: BLE001 - any of decode/parse/key-lookup can fail here
-            _LOGGER.warning("Failed to decode/extract accessToken from PostAuth payload: %s", err)
+            _LOGGER.warning(
+                "Failed to decode/extract accessToken from PostAuth payload (payload=%r): %s",
+                b64_payload[:80],
+                err,
+            )
             raise CannotConnect("Could not parse PostAuth response") from err
 
         if len(access_token) < 100:
