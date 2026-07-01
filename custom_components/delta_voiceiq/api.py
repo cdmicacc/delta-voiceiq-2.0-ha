@@ -186,7 +186,7 @@ class DeltaVoiceIQClient:
         )
 
     async def hand_wash(self) -> None:
-        await self._post("/api/voice/v4/handWashMode")
+        await self._post("/api/voice/v4/handWashMode", json={})
 
     async def get_usage(self, mac_address: str, interval: int) -> float:
         """Return summed usage in gallons for the given interval (0=today,1=week,2=month,3=year)."""
@@ -208,10 +208,10 @@ class DeltaVoiceIQClient:
         except (KeyError, IndexError, TypeError) as err:
             raise CannotConnect("Malformed UsageReport response") from err
 
-    async def _post(self, path: str, params: dict[str, str] | None = None) -> None:
+    async def _post(self, path: str, params: dict[str, str] | None = None, json: dict | None = None) -> None:
         try:
             async with self._session.post(
-                f"{BASE_URL}{path}", params=params or {}, headers=self._headers()
+                f"{BASE_URL}{path}", params=params or {}, json=json, headers=self._headers()
             ) as resp:
                 if resp.status == 401:
                     raise AuthExpired(f"{path} rejected the access token")
