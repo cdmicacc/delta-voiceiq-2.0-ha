@@ -26,6 +26,7 @@ from .const import (
     CONF_DEVICE_NAME,
     CONF_EXP_TIMESTAMP,
     CONF_MAC_ADDRESS,
+    CONF_PRODUCT_ID,
     CONF_USER_ID,
     DOMAIN,
     LOGIN_PROVIDERS,
@@ -121,6 +122,7 @@ class DeltaVoiceIQConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_USER_ID: self._exchange_result.user_id,
                 CONF_EXP_TIMESTAMP: self._exchange_result.exp_timestamp,
                 CONF_DEVICE_NAME: device.name,
+                CONF_PRODUCT_ID: device.product_id,
             },
         )
 

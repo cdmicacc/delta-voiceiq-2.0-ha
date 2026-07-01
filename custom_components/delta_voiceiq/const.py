@@ -12,6 +12,7 @@ CONF_MAC_ADDRESS = "mac_address"
 CONF_USER_ID = "user_id"
 CONF_EXP_TIMESTAMP = "exp_timestamp"
 CONF_DEVICE_NAME = "device_name"
+CONF_PRODUCT_ID = "product_id"
 
 USAGE_INTERVALS: dict[str, int] = {
     "today": 0,

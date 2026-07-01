@@ -15,7 +15,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 import homeassistant.util.dt as dt_util
 
 from . import DeltaVoiceIQConfigEntry
-from .const import CONF_EXP_TIMESTAMP, CONF_MAC_ADDRESS, CONF_USER_ID, DOMAIN, LITERS_PER_GALLON, USAGE_INTERVALS
+from .const import CONF_EXP_TIMESTAMP, CONF_MAC_ADDRESS, CONF_PRODUCT_ID, CONF_USER_ID, DOMAIN, LITERS_PER_GALLON, USAGE_INTERVALS
 from .coordinator import DeltaUsageCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,6 +37,8 @@ async def async_setup_entry(
         StaticInfoSensor(entry, "MAC Address", "mac_address_info", entry.data[CONF_MAC_ADDRESS])
     )
     entities.append(StaticInfoSensor(entry, "User ID", "user_id_info", entry.data[CONF_USER_ID]))
+    if product_id := entry.data.get(CONF_PRODUCT_ID):
+        entities.append(StaticInfoSensor(entry, "Model", "product_id_info", product_id))
     async_add_entities(entities)
 
 

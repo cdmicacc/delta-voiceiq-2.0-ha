@@ -13,7 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import DeltaVoiceIQConfigEntry
 from .api import AuthExpired, CannotConnect, convert_to_ml
-from .const import CONF_DEVICE_NAME, CONF_MAC_ADDRESS, DOMAIN
+from .const import CONF_DEVICE_NAME, CONF_MAC_ADDRESS, CONF_PRODUCT_ID, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class DeltaFaucetValve(ValveEntity):
             identifiers={(DOMAIN, self._mac_address)},
             name=entry.data[CONF_DEVICE_NAME],
             manufacturer="Delta",
-            model="VoiceIQ Faucet",
+            model=entry.data.get(CONF_PRODUCT_ID),
         )
 
     async def async_open_valve(self) -> None:
