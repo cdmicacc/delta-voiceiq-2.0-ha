@@ -93,7 +93,7 @@ class DeltaFaucetValve(ValveEntity):
 
     async def async_hand_wash(self) -> None:
         try:
-            await self._client.hand_wash()
+            await self._client.hand_wash(self._mac_address)
         except AuthExpired as err:
             self._entry.async_start_reauth(self.hass)
             raise HomeAssistantError(
