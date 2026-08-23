@@ -1,12 +1,13 @@
 """The Delta VoiceIQ integration."""
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import async_track_time_interval
@@ -37,6 +38,7 @@ class DeltaVoiceIQRuntimeData:
 type DeltaVoiceIQConfigEntry = ConfigEntry[DeltaVoiceIQRuntimeData]
 
 
+@callback
 def _async_check_token_expiry(hass: HomeAssistant, entry: DeltaVoiceIQConfigEntry) -> None:
     """Create/clear Repair issues for an unparseable exp claim or a soon-to-expire token."""
     unparseable_issue_id = f"{entry.entry_id}_exp_unparseable"
@@ -57,7 +59,13 @@ def _async_check_token_expiry(hass: HomeAssistant, entry: DeltaVoiceIQConfigEntr
 
     ir.async_delete_issue(hass, DOMAIN, unparseable_issue_id)
     days_left = (exp - dt_util.utcnow().timestamp()) / 86400
-    if days_left < TOKEN_EXPIRY_WARNING_DAYS:
+    # Compare on whole days remaining, matching the Token Expiry sensor. Warning
+    # at `days_left < 7` would have fired with only ~6.9 days left -- less notice
+    # than the threshold promises. Firing once the floored count reaches 7 gives
+    # a full 7 days at minimum, and keeps the Repair in step with the sensor:
+    # the Repair is present exactly when the sensor reads 7 or below.
+    whole_days_left = math.floor(days_left)
+    if whole_days_left <= TOKEN_EXPIRY_WARNING_DAYS:
         ir.async_create_issue(
             hass,
             DOMAIN,
@@ -65,7 +73,7 @@ def _async_check_token_expiry(hass: HomeAssistant, entry: DeltaVoiceIQConfigEntr
             is_fixable=False,
             severity=ir.IssueSeverity.WARNING,
             translation_key="expiring_soon",
-            translation_placeholders={"days": str(round(days_left))},
+            translation_placeholders={"days": str(whole_days_left)},
         )
     else:
         ir.async_delete_issue(hass, DOMAIN, expiring_issue_id)
@@ -86,10 +94,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: DeltaVoiceIQConfigEntry)
     entry.runtime_data = DeltaVoiceIQRuntimeData(client=client, coordinators=coordinators)
 
     _async_check_token_expiry(hass, entry)
+
+    @callback
+    def _recheck_token_expiry(now) -> None:
+        _async_check_token_expiry(hass, entry)
+
     entry.async_on_unload(
-        async_track_time_interval(
-            hass, lambda now: _async_check_token_expiry(hass, entry), timedelta(hours=24)
-        )
+        async_track_time_interval(hass, _recheck_token_expiry, timedelta(hours=24))
     )
 
     if PLATFORMS:

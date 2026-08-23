@@ -49,6 +49,38 @@ def test_token_expiry_sensor_computes_days_remaining():
     assert sensor.native_value == 10
 
 
+@pytest.mark.parametrize(
+    ("days_out", "expected"),
+    [
+        (7.6, 7),   # round() reported 8 here -- an hour short of 8 days is not 8
+        (6.6, 6),   # round() reported 7 here -- the reading that caused confusion
+        (7.27, 7),
+        (0.5, 0),   # under a day left must never read as 1
+    ],
+)
+def test_token_expiry_sensor_floors_and_never_overstates(days_out, expected):
+    """The state must never claim more time remaining than there actually is."""
+    now = datetime(2026, 6, 23, tzinfo=timezone.utc)
+    entry = _make_entry(exp_timestamp=int(now.timestamp() + days_out * 86400))
+
+    with patch("homeassistant.util.dt.utcnow", return_value=now):
+        sensor = TokenExpirySensor(entry)
+
+    assert sensor.native_value == expected
+
+
+def test_token_expiry_sensor_exposes_exact_expiry_attributes():
+    now = datetime(2026, 6, 23, tzinfo=timezone.utc)
+    entry = _make_entry(exp_timestamp=int(now.timestamp() + 7.5 * 86400))
+
+    with patch("homeassistant.util.dt.utcnow", return_value=now):
+        sensor = TokenExpirySensor(entry)
+
+    assert sensor.native_value == 7
+    assert sensor.extra_state_attributes["hours_remaining"] == 180
+    assert sensor.extra_state_attributes["expires_at"].startswith("2026-06-30T12:00")
+
+
 def test_token_expiry_sensor_unknown_when_exp_missing():
     entry = _make_entry(exp_timestamp=None)
     sensor = TokenExpirySensor(entry)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from datetime import timedelta
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
@@ -89,9 +90,19 @@ class TokenExpirySensor(SensorEntity):
         exp = self._entry.data.get(CONF_EXP_TIMESTAMP)
         if not exp:
             self._attr_native_value = None
+            self._attr_extra_state_attributes = {}
             return
         days_left = (exp - dt_util.utcnow().timestamp()) / 86400
-        self._attr_native_value = round(days_left)
+        # Floor, never round: "7" must mean "at least 7 days, less than 8", so the
+        # reading is never more optimistic than reality. Rounding reported 7 for
+        # anything from 6.5 to 7.5, which overstates the time left half the time.
+        # This is the same whole-day count the expiring_soon Repair thresholds on,
+        # so the Repair is present exactly when this sensor reads 7 or below.
+        self._attr_native_value = math.floor(days_left)
+        self._attr_extra_state_attributes = {
+            "expires_at": dt_util.utc_from_timestamp(exp).isoformat(),
+            "hours_remaining": math.floor(days_left * 24),
+        }
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(
