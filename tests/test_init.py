@@ -184,6 +184,20 @@ async def test_scheduled_recheck_creates_issue_as_token_ages(hass, freezer):
 
 
 @pytest.mark.asyncio
+async def test_expiring_soon_issue_is_fixable_and_identifies_its_entry(hass):
+    """The Repair must offer a fix flow, and tell that flow which entry to renew."""
+    now = datetime(2026, 6, 23, tzinfo=timezone.utc)
+    entry = _entry_with_exp(hass, int(now.timestamp()) + 3 * 86400)
+
+    with patch("custom_components.delta_voiceiq.dt_util.utcnow", return_value=now):
+        _async_check_token_expiry(hass, entry)
+
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"{entry.entry_id}_expiring_soon")
+    assert issue.is_fixable is True
+    assert issue.data == {"entry_id": entry.entry_id}
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("days_out", "expect_issue"),
     [

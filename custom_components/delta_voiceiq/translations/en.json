@@ -39,8 +39,34 @@
       "description": "Home Assistant could not read the expiration date from your Delta access token. Check the Home Assistant logs for details — this usually means Delta changed its token format."
     },
     "expiring_soon": {
-      "title": "Delta faucet token expires soon",
-      "description": "Your Delta faucet access token expires in {days} days. Go to Settings → Devices & Services and reauthenticate to refresh it."
+      "title": "Delta faucet sign-in expires in {days} days",
+      "description": "Your Delta access token expires in {days} days. Select **Fix** to sign in again and refresh it — the faucet keeps working until then.",
+      "fix_flow": {
+        "step": {
+          "provider": {
+            "title": "Refresh your Delta sign-in",
+            "description": "Your access token is about to expire. Signing in again replaces it — your faucet, entities and history are all kept.\n\nPick the provider you use to sign in to the DFC@Home app.",
+            "data": {
+              "provider": "Sign-in provider"
+            }
+          },
+          "code": {
+            "title": "Paste your Delta sign-in code",
+            "description": "1. Open this link and sign in: {login_url}\n2. After signing in, you'll be redirected to a `justaddwater://` URL that your browser can't open — this is expected.\n   - **Firefox:** Open the Network tab before clicking sign in. Find the failed redirect request and copy the `Location` response header — it starts with `justaddwater://`.\n   - **Chrome:** Open DevTools Console (right-click → Inspect → Console) before signing in. After sign in, find the `Failed to launch 'justaddwater://...'` error — the full URL is right there to copy.\n3. Paste the full URL or just the `delta.code.XXXXX` part below.",
+            "data": {
+              "code": "Delta sign-in code or full redirect URL"
+            }
+          }
+        },
+        "error": {
+          "invalid_code": "That code was rejected by Delta. It may be expired or already used — sign in again to get a fresh one.",
+          "cannot_connect": "Could not complete sign-in with Delta. Check the Home Assistant logs for details and try again."
+        },
+        "abort": {
+          "no_devices_found": "No VoiceIQ devices were found on this Delta account.",
+          "entry_not_found": "This faucet is no longer configured in Home Assistant."
+        }
+      }
     }
   }
 }

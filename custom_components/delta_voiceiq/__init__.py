@@ -70,10 +70,11 @@ def _async_check_token_expiry(hass: HomeAssistant, entry: DeltaVoiceIQConfigEntr
             hass,
             DOMAIN,
             expiring_issue_id,
-            is_fixable=False,
+            is_fixable=True,
             severity=ir.IssueSeverity.WARNING,
             translation_key="expiring_soon",
             translation_placeholders={"days": str(whole_days_left)},
+            data={"entry_id": entry.entry_id},
         )
     else:
         ir.async_delete_issue(hass, DOMAIN, expiring_issue_id)
