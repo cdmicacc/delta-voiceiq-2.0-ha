@@ -40,7 +40,6 @@
     },
     "expiring_soon": {
       "title": "Delta faucet sign-in expires in {days} days",
-      "description": "Your Delta access token expires in {days} days. Select **Fix** to sign in again and refresh it — the faucet keeps working until then.",
       "fix_flow": {
         "step": {
           "provider": {

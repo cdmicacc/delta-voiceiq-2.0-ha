@@ -17,7 +17,8 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          # pytest-homeassistant-custom-component pins Requires-Python >=3.14.
+          python-version: "3.14"
           cache: pip
           # Non-default filename; without this the cache step fails outright.
           cache-dependency-path: requirements_test.txt

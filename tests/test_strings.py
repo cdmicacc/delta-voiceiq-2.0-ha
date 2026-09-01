@@ -46,6 +46,19 @@ def test_expiring_soon_title_reports_the_day_count(path):
 
 
 @pytest.mark.parametrize("path", [STRINGS, EN])
+def test_fixable_issue_does_not_also_define_a_description(path):
+    """Hassfest treats description and fix_flow as mutually exclusive.
+
+    An issue is either fixable (fix_flow, whose first step supplies the text) or
+    static (description). Defining both fails validation with "two or more values
+    in the same group of exclusion 'fixable'".
+    """
+    issue = _load(path)["issues"]["expiring_soon"]
+    assert "fix_flow" in issue
+    assert "description" not in issue
+
+
+@pytest.mark.parametrize("path", [STRINGS, EN])
 def test_expiring_soon_does_not_send_users_to_a_dead_end(path):
     """There is no manual reauth entry point on the integration page, so the old
     'go to Settings and reauthenticate' instruction pointed nowhere."""
