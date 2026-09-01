@@ -19,6 +19,8 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
+          # Non-default filename; without this the cache step fails outright.
+          cache-dependency-path: requirements_test.txt
 
       - name: Install dependencies
         run: |
